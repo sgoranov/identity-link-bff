@@ -17,12 +17,12 @@ security:
             client: default
             login_path: /login
             check_path: /login_check
-            default_target_path: /protected
+            default_target_path: /post-login
+            always_use_default_target_path: true
 
-#          # Standard session and logout handling
-#          logout:
-#            path: app_logout # Define a route for logout
-#            target: /
+          logout:
+            path: /logout
+            target: /login
 
     # Easy way to control access for large sections of your site
     # Note: Only the *first* access control that matches will be used
@@ -30,6 +30,8 @@ security:
         # - { path: ^/admin, roles: ROLE_ADMIN }
         # - { path: ^/profile, roles: ROLE_USER }
       - { path: ^/login, roles: PUBLIC_ACCESS }
+      - { path: ^/post-login, roles: ROLE_USER }
+      - { path: ^/logout, roles: ROLE_USER }
       - { path: ^/proxy, roles: ROLE_USER }
 
 when@test:

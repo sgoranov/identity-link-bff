@@ -15,4 +15,10 @@ class LoginController extends AbstractController
     {
         return $oidcClient->generateAuthorizationRedirect();
     }
+
+    #[Route('/post-login', name: 'post_login', methods: ['GET'])]
+    public function postLogin(): RedirectResponse
+    {
+        return new RedirectResponse($this->getParameter('post_login_redirect_url'));
+    }
 }
