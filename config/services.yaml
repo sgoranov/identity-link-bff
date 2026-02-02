@@ -24,6 +24,7 @@ services:
     App\Controller\ProxyController:
         arguments:
             $serviceBaseUrls: '%env(json:PROXY_SERVICE_BASE_URLS)%'
+            $tlsVerify: '%env(bool:PROXY_TLS_VERIFY)%'
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

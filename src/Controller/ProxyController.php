@@ -18,6 +18,7 @@ class ProxyController extends AbstractController
     public function __construct(
         private readonly HttpClientInterface $httpClient,
         private readonly array $serviceBaseUrls,
+        private readonly bool $tlsVerify,
     )
     {
     }
@@ -48,37 +49,53 @@ class ProxyController extends AbstractController
         $queryString = $request->getQueryString();
         $url = rtrim($baseUrl, '/') . '/' . ltrim($path, '/')
             . ($queryString ? '?' . $queryString : '');
-        $headers = $request->headers->all();
+
+        $headers = [];
+        $forwardableHeaders = ['content-type', 'accept', 'accept-language'];
+        foreach ($forwardableHeaders as $name) {
+            if ($request->headers->has($name)) {
+                $headers[$name] = $request->headers->get($name);
+            }
+        }
+
         $headers['Authorization'] = 'Bearer ' . $accessToken;
 
         try {
             $backendResponse = $this->httpClient->request($request->getMethod(), $url, [
                 'headers' => $headers,
                 'body' => $request->getContent(),
+                'buffer' => false, // tells Symfony NOT to save the file to disk/memory.
+                'verify_peer' => $this->tlsVerify,
             ]);
+
+            $statusCode = $backendResponse->getStatusCode();
+            $responseHeaders = $backendResponse->getHeaders(false);
+
+            return new StreamedResponse(function () use ($backendResponse): void {
+                foreach ($this->httpClient->stream($backendResponse) as $chunk) {
+                    echo $chunk->getContent();
+                    if (connection_aborted()) {
+                        $backendResponse->cancel();
+                        break;
+                    }
+                }
+            }, $statusCode, $this->filterHeaders($responseHeaders));
+
         } catch (TransportExceptionInterface $exception) {
             return new JsonResponse(['error' => 'Backend unavailable.'], Response::HTTP_BAD_GATEWAY);
         }
-
-        $responseHeaders = $backendResponse->getHeaders(false);
-        $response = $this->createStreamedResponse($backendResponse);
-
-        foreach ($responseHeaders as $name => $values) {
-            foreach ($values as $value) {
-                $response->headers->set($name, $value, false);
-            }
-        }
-
-        return $response;
     }
 
-    private function createStreamedResponse($backendResponse): StreamedResponse
+    // Remove headers that might interfere with the proxy-to-client connection
+    private function filterHeaders(array $headers): array
     {
-        return new StreamedResponse(function () use ($backendResponse): void {
-            foreach ($this->httpClient->stream($backendResponse) as $chunk) {
-                echo $chunk->getContent();
-                flush();
+        $exclude = ['transfer-encoding', 'host', 'connection'];
+        $filtered = [];
+        foreach ($headers as $key => $values) {
+            if (!in_array(strtolower($key), $exclude)) {
+                $filtered[$key] = $values[0];
             }
-        }, $backendResponse->getStatusCode());
+        }
+        return $filtered;
     }
 }

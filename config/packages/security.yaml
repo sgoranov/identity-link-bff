@@ -32,6 +32,7 @@ security:
       - { path: ^/login, roles: PUBLIC_ACCESS }
       - { path: ^/post-login, roles: ROLE_USER }
       - { path: ^/logout, roles: ROLE_USER }
+      - { path: ^/session, roles: ROLE_USER }
       - { path: ^/proxy, roles: ROLE_USER }
 
 when@test:
