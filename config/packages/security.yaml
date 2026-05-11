@@ -20,6 +20,11 @@ security:
             check_path: /login_check
             default_target_path: /post-login
             always_use_default_target_path: true
+            # Use ID token claims as user data (your ID token includes name/given_name/family_name).
+            # This avoids relying on the UserInfo endpoint returning these fields.
+            enable_retrieve_user_info: false
+            user_info_from_idtoken: true
+            user_identifier_from_idtoken: true
 
           logout:
             path: /logout

@@ -15,6 +15,7 @@ class OidcUserProvider implements OidcUserProviderInterface
 {
     private const SESSION_ACCESS_TOKEN_KEY = '_oidc_access_token';
     private const SESSION_REFRESH_TOKEN_KEY = '_oidc_refresh_token';
+    private const SESSION_NAME_KEY = '_oidc_user_name';
 
     public function __construct(private readonly RequestStack $requestStack)
     {
@@ -56,19 +57,22 @@ class OidcUserProvider implements OidcUserProviderInterface
 
         $session->set(self::SESSION_ACCESS_TOKEN_KEY, $tokens->getAccessToken());
         $session->set(self::SESSION_REFRESH_TOKEN_KEY, $tokens->getRefreshToken());
+        $session->set(self::SESSION_NAME_KEY, $this->resolveName($userData));
     }
 
     public function loadOidcUser(string $userIdentifier): UserInterface
     {
         $accessToken = null;
         $refreshToken = null;
+        $name = null;
         $session = $this->getSession();
         if ($session !== null) {
             $accessToken = $session->get(self::SESSION_ACCESS_TOKEN_KEY);
             $refreshToken = $session->get(self::SESSION_REFRESH_TOKEN_KEY);
+            $name = $session->get(self::SESSION_NAME_KEY);
         }
 
-        return new OidcUser($userIdentifier, $accessToken, $refreshToken);
+        return new OidcUser($userIdentifier, is_string($name) && $name !== '' ? $name : null, $accessToken, $refreshToken);
     }
 
     private function getSession(): ?SessionInterface
@@ -96,5 +100,28 @@ class OidcUserProvider implements OidcUserProviderInterface
         } catch (\Exception $e) {
             return true;
         }
+    }
+
+    private function resolveName(OidcUserData $userData): ?string
+    {
+        $givenName = trim($userData->getGivenName());
+        $familyName = trim($userData->getFamilyName());
+        $givenFamily = trim($givenName . ' ' . $familyName);
+        if ($givenFamily !== '') {
+            return $givenFamily;
+        }
+
+        $fullName = trim($userData->getFullName());
+        if ($fullName !== '') {
+            return $fullName;
+        }
+
+        $displayName = trim($userData->getDisplayName());
+        if ($displayName !== '') {
+            return $displayName;
+        }
+
+        $email = trim($userData->getEmail());
+        return $email !== '' ? $email : null;
     }
 }

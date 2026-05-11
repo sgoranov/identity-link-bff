@@ -22,6 +22,7 @@ class SessionController extends AbstractController
 
         return new JsonResponse([
             'id' => $user->getUserIdentifier(),
+            'name' => $user->getName(),
             'access_token_present' => $user->getAccessToken() !== null,
             'refresh_token_present' => $user->getRefreshToken() !== null,
         ]);

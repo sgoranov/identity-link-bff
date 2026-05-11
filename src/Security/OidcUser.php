@@ -9,6 +9,7 @@ readonly class OidcUser implements UserInterface
 {
     public function __construct(
         private string $userIdentifier,
+        private ?string $name = null,
         private ?string $accessToken = null,
         private ?string $refreshToken = null,
     )
@@ -23,6 +24,11 @@ readonly class OidcUser implements UserInterface
     public function getRoles(): array
     {
         return ['ROLE_USER'];
+    }
+
+    public function getName(): ?string
+    {
+        return $this->name;
     }
 
     public function getAccessToken(): ?string

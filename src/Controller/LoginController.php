@@ -13,7 +13,8 @@ class LoginController extends AbstractController
     #[Route('/login', name: 'login')]
     public function login(OidcClientInterface $oidcClient): RedirectResponse
     {
-        return $oidcClient->generateAuthorizationRedirect();
+        // Request profile claims (names) from the OIDC provider.
+        return $oidcClient->generateAuthorizationRedirect(scopes: ['openid', 'profile', 'email']);
     }
 
     #[Route('/post-login', name: 'post_login', methods: ['GET'])]
