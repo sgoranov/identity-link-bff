@@ -1,55 +1,43 @@
 # syntax=docker/dockerfile:1
-FROM ubuntu:24.04
 
-RUN apt-get update && apt-get -y upgrade && DEBIAN_FRONTEND=noninteractive apt-get -y install \
-    sudo \
-    ssh \
-    git \
-    nano \
-    less \
-    net-tools \
-    inetutils-ping \
-    iproute2 \
-    telnet \
-    apache2 \
-    curl \
-    jq \
-    ca-certificates \
-    gnupg \
-    unzip \
-    zip \
-    libzip-dev \
-    php \
-    php-fpm \
-    php-xml \
-    php-xdebug \
-    php-curl \
-    php-mbstring \
-    php-zip
+# FrankenPHP speaks HTTP, so your existing Nginx `proxy_pass` workflow works.
+# This tag floats within FrankenPHP major `1`, PHP `8.5`, on Debian Bookworm.
+FROM dunglas/frankenphp:1-php8.5-bookworm AS base
 
-# Install Composer
-RUN curl -sS https://getcomposer.org/installer | php \
-    && mv composer.phar /usr/local/bin/composer \
-    && chmod +x /usr/local/bin/composer
+# Bind to port 9004 (unprivileged) and disable auto-HTTPS since Nginx is in front.
+ENV SERVER_NAME=":9004"
+ENV CADDY_AUTO_HTTPS=off
 
-# Apache configuration
-RUN a2enmod rewrite
-RUN a2enmod actions
+# The FrankenPHP image provides install-php-extensions.
+RUN install-php-extensions mbstring zip
 
-COPY ./docker/apache.conf /etc/apache2/sites-enabled/000-default.conf
+EXPOSE 9004
 
-# Manually set up the apache environment variables
-ENV APACHE_RUN_USER www-data
-ENV APACHE_RUN_GROUP www-data
-ENV APACHE_LOG_DIR /var/log/apache2
-ENV APACHE_LOCK_DIR /var/lock/apache2
-ENV APACHE_PID_FILE /var/run/apache2.pid
+# Composer (copy from official image).
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-COPY ./docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+WORKDIR /app
 
-ENTRYPOINT ["/entrypoint.sh"]
-CMD apachectl -D FOREGROUND
 
-# Used for debugging purposes only to keep the container up and running
-# CMD tail -f /dev/null
+FROM base AS dev
+
+# Dev target: sources are expected to be mounted via volume at /app.
+# No COPY and no build-time composer install here.
+
+
+FROM base AS prod
+
+# Prod-only extension: OPcache for performance.
+RUN install-php-extensions opcache
+
+# Install deps at build time for deterministic startup.
+# Copy only the manifest files first to maximize Docker layer cache hits.
+COPY composer.json composer.lock symfony.lock /app/
+RUN composer install --no-interaction --no-dev --no-scripts --prefer-dist --optimize-autoloader
+
+COPY . /app
+
+# App runtime directories.
+RUN mkdir -p var/cache var/log \
+    && chown -R www-data:www-data var
+

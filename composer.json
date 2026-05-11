@@ -25,6 +25,11 @@
         "web-token/jwt-library": "^4.1"
     },
     "config": {
+        "platform": {
+            "php": "8.5",
+            "ext-pgsql": "8.5",
+            "ext-sodium": "8.5"
+        },
         "allow-plugins": {
             "php-http/discovery": true,
             "symfony/flex": true,
