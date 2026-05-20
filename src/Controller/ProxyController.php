@@ -71,15 +71,28 @@ class ProxyController extends AbstractController
             $statusCode = $backendResponse->getStatusCode();
             $responseHeaders = $backendResponse->getHeaders(false);
 
+            $filteredHeaders = $this->filterHeaders($responseHeaders);
+            unset($filteredHeaders['transfer-encoding']);
+            unset($filteredHeaders['content-length']);
+            $filteredHeaders['cache-control'] = 'no-cache, must-revalidate';
+            $filteredHeaders['x-content-type-options'] = 'nosniff';
+            $filteredHeaders['X-Accel-Buffering'] = 'no';
+
             return new StreamedResponse(function () use ($backendResponse): void {
+                if (ob_get_level() > 0) {
+                    ob_end_flush();
+                }
+
                 foreach ($this->httpClient->stream($backendResponse) as $chunk) {
                     echo $chunk->getContent();
+                    flush();
+
                     if (connection_aborted()) {
                         $backendResponse->cancel();
                         break;
                     }
                 }
-            }, $statusCode, $this->filterHeaders($responseHeaders));
+            }, $statusCode, $this->filterHeaders($filteredHeaders));
 
         } catch (TransportExceptionInterface $exception) {
             return new JsonResponse(['error' => 'Backend unavailable.'], Response::HTTP_BAD_GATEWAY);

@@ -7,10 +7,10 @@ Backend-for-frontend (BFF) that handles OIDC login, stores the user session, and
 Configure environment variables (use `.env.local` for local overrides):
 
 ```
-OIDC_WELL_KNOWN_URL=https://auth.example.com/.well-known/openid-configuration
+OIDC_WELL_KNOWN_URL=https://example.com/.well-known/openid-configuration
 OIDC_CLIENT_ID=...
 OIDC_CLIENT_SECRET=...
-PROXY_SERVICE_BASE_URLS='{"users":"https://auth.example.com/users"}'
+PROXY_SERVICE_BASE_URLS='{"users":"https://example.com/users"}'
 PROXY_TLS_VERIFY=1
 ```
 
