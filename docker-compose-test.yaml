@@ -1,0 +1,26 @@
+services:
+
+  identity-link-bff-test:
+    container_name: identity-link-bff-test
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: test
+    image: identity-link-bff-test
+    volumes:
+      - .:/app
+    networks:
+      - identity-link-network
+
+  identity-link-bff-test-debug:
+    extends:
+      file: docker-compose-test.yaml
+      service: identity-link-bff-test
+    container_name: identity-link-bff-test-debug
+    entrypoint: bash
+    stdin_open: true
+    tty: true
+
+networks:
+  identity-link-network:
+    driver: bridge

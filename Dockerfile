@@ -1,43 +1,69 @@
 # syntax=docker/dockerfile:1
+FROM php:8.5-cli-bookworm AS test
 
-# FrankenPHP speaks HTTP, so your existing Nginx `proxy_pass` workflow works.
-# This tag floats within FrankenPHP major `1`, PHP `8.5`, on Debian Bookworm.
-FROM dunglas/frankenphp:1-php8.5-bookworm AS base
+RUN apt-get update && apt-get install -y \
+    libonig-dev \
+    libzip-dev \
+    unzip
 
-# Bind to port 9004 (unprivileged) and disable auto-HTTPS since Nginx is in front.
-ENV SERVER_NAME=":9004"
-ENV CADDY_AUTO_HTTPS=off
+RUN docker-php-ext-install zip mbstring
 
-# The FrankenPHP image provides install-php-extensions.
-RUN install-php-extensions mbstring zip
+RUN pecl install xdebug && docker-php-ext-enable xdebug
 
-EXPOSE 9004
-
-# Composer (copy from official image).
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
+COPY composer.json composer.lock* ./
+RUN composer install --no-interaction --no-scripts --no-progress
+
+CMD ["vendor/bin/phpunit"]
+
+FROM dunglas/frankenphp:1-php8.5-bookworm AS base
+
+RUN install-php-extensions mbstring zip
+
+ENV SERVER_NAME=":9004"
+ENV CADDY_AUTO_HTTPS=off
+
+WORKDIR /app
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile"]
 
 
 FROM base AS dev
 
-# Dev target: sources are expected to be mounted via volume at /app.
-# No COPY and no build-time composer install here.
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
+# Dev target: sources are expected to be mounted via volume at /app.
+COPY ./docker/entrypoint-dev.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+RUN install-php-extensions xdebug
+
+FROM base AS vendor
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /app
+
+COPY composer.json composer.lock ./
+
+RUN composer install \
+    --no-dev \
+    --prefer-dist \
+    --no-interaction \
+    --no-scripts \
+    --no-autoloader
+
+COPY . .
+
+RUN composer dump-autoload --optimize --classmap-authoritative --no-dev
 
 FROM base AS prod
 
-# Prod-only extension: OPcache for performance.
-RUN install-php-extensions opcache
-
-# Install deps at build time for deterministic startup.
-# Copy only the manifest files first to maximize Docker layer cache hits.
-COPY composer.json composer.lock symfony.lock /app/
-RUN composer install --no-interaction --no-dev --no-scripts --prefer-dist --optimize-autoloader
-
-COPY . /app
-
-# App runtime directories.
-RUN mkdir -p var/cache var/log \
-    && chown -R www-data:www-data var
+COPY . .
+COPY --from=vendor /app/vendor ./vendor
+COPY ./docker/entrypoint-prod.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 

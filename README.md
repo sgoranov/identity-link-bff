@@ -1,4 +1,10 @@
-# identity-link-bff
+# Identity Link BFF
+
+![License](https://img.shields.io/github/license/sgoranov/identity-link-bff)
+![Last Commit](https://img.shields.io/github/last-commit/sgoranov/identity-link-bff)
+![Issues](https://img.shields.io/github/issues/sgoranov/identity-link-bff)
+[![PHPUnit Tests](https://github.com/sgoranov/identity-link-bff/actions/workflows/phpunit.yml/badge.svg)](https://github.com/sgoranov/identity-link-bff/actions/workflows/phpunit.yml)
+[![Security Audit](https://github.com/sgoranov/identity-link-bff/actions/workflows/vulnerability-scan.yml/badge.svg)](https://github.com/sgoranov/identity-link-bff/actions/workflows/vulnerability-scan.yml)
 
 Backend-for-frontend (BFF) that handles OIDC login, stores the user session, and proxies requests to backend services while attaching the access token.
 
@@ -28,3 +34,8 @@ The OIDC callback path is `/login_check`. Register this exact URL with the IdP, 
 ## Notes
 
 - `.env` contains only non-secret defaults. Use `.env.local` for local secrets.
+
+## License
+
+Identity Link is open source software licensed under the [MIT License](LICENSE), which permits reuse,
+modification, and distribution with minimal restrictions.

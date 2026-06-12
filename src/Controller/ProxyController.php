@@ -68,21 +68,7 @@ class ProxyController extends AbstractController
                 'verify_peer' => $this->tlsVerify,
             ]);
 
-            $statusCode = $backendResponse->getStatusCode();
-            $responseHeaders = $backendResponse->getHeaders(false);
-
-            $filteredHeaders = $this->filterHeaders($responseHeaders);
-            unset($filteredHeaders['transfer-encoding']);
-            unset($filteredHeaders['content-length']);
-            $filteredHeaders['cache-control'] = 'no-cache, must-revalidate';
-            $filteredHeaders['x-content-type-options'] = 'nosniff';
-            $filteredHeaders['X-Accel-Buffering'] = 'no';
-
             return new StreamedResponse(function () use ($backendResponse): void {
-                if (ob_get_level() > 0) {
-                    ob_end_flush();
-                }
-
                 foreach ($this->httpClient->stream($backendResponse) as $chunk) {
                     echo $chunk->getContent();
                     flush();
@@ -92,23 +78,34 @@ class ProxyController extends AbstractController
                         break;
                     }
                 }
-            }, $statusCode, $this->filterHeaders($filteredHeaders));
+            }, $backendResponse->getStatusCode(), $this->filterHeaders($backendResponse->getHeaders(false)));
 
         } catch (TransportExceptionInterface $exception) {
             return new JsonResponse(['error' => 'Backend unavailable.'], Response::HTTP_BAD_GATEWAY);
         }
     }
 
-    // Remove headers that might interfere with the proxy-to-client connection
     private function filterHeaders(array $headers): array
     {
-        $exclude = ['transfer-encoding', 'host', 'connection'];
+        $exclude = [
+            'transfer-encoding',
+            'content-length',
+            'content-encoding',
+            'host',
+            'connection'
+        ];
+
         $filtered = [];
         foreach ($headers as $key => $values) {
             if (!in_array(strtolower($key), $exclude)) {
-                $filtered[$key] = $values[0];
+                $filtered[$key] = $values;
             }
         }
+
+        $filtered['cache-control'] = ['no-cache', 'must-revalidate'];
+        $filtered['x-content-type-options'] = ['nosniff'];
+        $filtered['X-Accel-Buffering'] = ['no'];
+
         return $filtered;
     }
 }

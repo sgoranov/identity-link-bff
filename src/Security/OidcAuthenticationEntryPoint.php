@@ -16,7 +16,7 @@ readonly class OidcAuthenticationEntryPoint implements AuthenticationEntryPointI
         private UrlGeneratorInterface $urlGenerator
     ) {}
 
-    public function start(Request $request, AuthenticationException $authException = null): RedirectResponse|JsonResponse
+    public function start(Request $request, AuthenticationException|null $authException = null): RedirectResponse|JsonResponse
     {
         $route = $request->attributes->get('_route');
         if ($request->isXmlHttpRequest() ||  in_array($route, ['proxy', 'session'], true)) {
