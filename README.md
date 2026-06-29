@@ -14,15 +14,15 @@ Configure environment variables (use `.env.local` for local overrides):
 
 ```
 OIDC_WELL_KNOWN_URL=https://example.com/.well-known/openid-configuration
-OIDC_CLIENT_ID=...
-OIDC_CLIENT_SECRET=...
+OIDC_CLIENT_ID_FILE=...
+OIDC_CLIENT_SECRET_FILE=...
 PROXY_SERVICE_BASE_URLS='{"users":"https://example.com/users"}'
 PROXY_TLS_VERIFY=1
 ```
 
 ## Auth flow
 
-- User hits the BFF first (e.g. `/protected`), which triggers OIDC login.
+- User hits the BFF first, which triggers OIDC login.
 - On success, the BFF stores the session and redirects to the frontend.
 - The frontend calls the BFF for API requests; the BFF attaches the access token.
 
@@ -30,10 +30,6 @@ PROXY_TLS_VERIFY=1
 
 The OIDC callback path is `/login_check`. Register this exact URL with the IdP, e.g.
 `https://ui.example.com/bff/login_check`.
-
-## Notes
-
-- `.env` contains only non-secret defaults. Use `.env.local` for local secrets.
 
 ## License
 

@@ -13,7 +13,8 @@ RUN pecl install xdebug && docker-php-ext-enable xdebug
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
-COPY composer.json composer.lock* ./
+
+COPY . .
 RUN composer install --no-interaction --no-scripts --no-progress
 
 CMD ["vendor/bin/phpunit"]

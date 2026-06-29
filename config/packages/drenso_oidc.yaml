@@ -4,8 +4,8 @@ drenso_oidc:
         default: # The client name, each client will be aliased to its name (for example, $defaultOidcClient)
             # Required OIDC client configuration
             well_known_url: '%env(OIDC_WELL_KNOWN_URL)%'
-            client_id: '%env(OIDC_CLIENT_ID)%'
-            client_secret: '%env(OIDC_CLIENT_SECRET)%'
+            client_id: '%env(default:fallback_oidc_client_id:file:OIDC_CLIENT_ID_FILE)%'
+            client_secret: '%env(default:fallback_oidc_client_secret:file:OIDC_CLIENT_SECRET_FILE)%'
             disable_nonce: true
 
             # Extra configuration options
