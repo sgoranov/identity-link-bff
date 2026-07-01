@@ -1,6 +1,0 @@
-drenso_oidc:
-  clients:
-    default:
-      custom_client_options:
-        64: false  # CURLOPT_SSL_VERIFYPEER
-        81: false  # CURLOPT_SSL_VERIFYHOST

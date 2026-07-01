@@ -18,7 +18,8 @@ class ProxyController extends AbstractController
     public function __construct(
         private readonly HttpClientInterface $httpClient,
         private readonly array $serviceBaseUrls,
-        private readonly bool $tlsVerify,
+        private readonly bool $verifyPeer,
+        private readonly int $verifyHost,
     )
     {
     }
@@ -65,7 +66,8 @@ class ProxyController extends AbstractController
                 'headers' => $headers,
                 'body' => $request->getContent(),
                 'buffer' => false, // tells Symfony NOT to save the file to disk/memory.
-                'verify_peer' => $this->tlsVerify,
+                'verify_host' => $this->verifyHost,
+                'verify_peer' => $this->verifyPeer,
             ]);
 
             return new StreamedResponse(function () use ($backendResponse): void {

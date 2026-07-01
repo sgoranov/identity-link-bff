@@ -17,7 +17,8 @@ OIDC_WELL_KNOWN_URL=https://example.com/.well-known/openid-configuration
 OIDC_CLIENT_ID_FILE=...
 OIDC_CLIENT_SECRET_FILE=...
 PROXY_SERVICE_BASE_URLS='{"users":"https://example.com/users"}'
-PROXY_TLS_VERIFY=1
+HTTP_CLIENT_SSL_VERIFYPEER=true
+HTTP_CLIENT_SSL_VERIFYHOST=2
 ```
 
 ## Auth flow

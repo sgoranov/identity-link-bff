@@ -8,6 +8,10 @@ drenso_oidc:
             client_secret: '%env(default:fallback_oidc_client_secret:file:OIDC_CLIENT_SECRET_FILE)%'
             disable_nonce: true
 
+            custom_client_options:
+                64: '%env(bool:HTTP_CLIENT_SSL_VERIFYPEER)%'
+                81: '%env(int:HTTP_CLIENT_SSL_VERIFYHOST)%'
+
             # Extra configuration options
             #redirect_route: '/login_check'
             #custom_client_headers: []
