@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Security\OidcUser;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -15,8 +16,11 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class ProxyController extends AbstractController
 {
+    private const MAX_LOGGED_BODY_LENGTH = 2000;
+
     public function __construct(
         private readonly HttpClientInterface $httpClient,
+        private LoggerInterface $logger,
         private readonly array $serviceBaseUrls,
         private readonly bool $verifyPeer,
         private readonly int $verifyHost,
@@ -70,6 +74,29 @@ class ProxyController extends AbstractController
                 'verify_peer' => $this->verifyPeer,
             ]);
 
+            $status = $backendResponse->getStatusCode();
+            if ($status >= 400) {
+                $body = $backendResponse->getContent(false);
+                $context = [
+                    'status' => $status,
+                    'method' => $request->getMethod(),
+                    'url' => $url,
+                    'body' => substr($body, 0, self::MAX_LOGGED_BODY_LENGTH),
+                    'body_truncated' => strlen($body) > self::MAX_LOGGED_BODY_LENGTH,
+                ];
+
+                match (true) {
+                    $status >= 500 => $this->logger->error('Backend returned server error', $context),
+                    default => $this->logger->warning('Backend returned client error', $context),
+                };
+
+                return new Response(
+                    $body,
+                    $status,
+                    $this->filterHeaders($backendResponse->getHeaders(false))
+                );
+            }
+
             return new StreamedResponse(function () use ($backendResponse): void {
                 foreach ($this->httpClient->stream($backendResponse) as $chunk) {
                     echo $chunk->getContent();
@@ -83,6 +110,13 @@ class ProxyController extends AbstractController
             }, $backendResponse->getStatusCode(), $this->filterHeaders($backendResponse->getHeaders(false)));
 
         } catch (TransportExceptionInterface $exception) {
+            $this->logger->error('Proxy transport error', [
+                'url' => $url,
+                'service' => $service,
+                'exception' => $exception,
+                'message' => $exception->getMessage(),
+            ]);
+
             return new JsonResponse(['error' => 'Backend unavailable.'], Response::HTTP_BAD_GATEWAY);
         }
     }
