@@ -51,9 +51,6 @@ class OidcUserProvider implements OidcUserProviderInterface
     public function ensureUserExists(string $userIdentifier, OidcUserData $userData, OidcTokens $tokens): void
     {
         $session = $this->getSession();
-        if ($session === null) {
-            return;
-        }
 
         $session->set(self::SESSION_ACCESS_TOKEN_KEY, $tokens->getAccessToken());
         $session->set(self::SESSION_REFRESH_TOKEN_KEY, $tokens->getRefreshToken());
@@ -62,24 +59,19 @@ class OidcUserProvider implements OidcUserProviderInterface
 
     public function loadOidcUser(string $userIdentifier): UserInterface
     {
-        $accessToken = null;
-        $refreshToken = null;
-        $name = null;
         $session = $this->getSession();
-        if ($session !== null) {
-            $accessToken = $session->get(self::SESSION_ACCESS_TOKEN_KEY);
-            $refreshToken = $session->get(self::SESSION_REFRESH_TOKEN_KEY);
-            $name = $session->get(self::SESSION_NAME_KEY);
-        }
+        $accessToken = $session->get(self::SESSION_ACCESS_TOKEN_KEY);
+        $refreshToken = $session->get(self::SESSION_REFRESH_TOKEN_KEY);
+        $name = $session->get(self::SESSION_NAME_KEY);
 
         return new OidcUser($userIdentifier, is_string($name) && $name !== '' ? $name : null, $accessToken, $refreshToken);
     }
 
-    private function getSession(): ?SessionInterface
+    private function getSession(): SessionInterface
     {
         $request = $this->requestStack->getCurrentRequest();
         if ($request === null || !$request->hasSession()) {
-            return null;
+            throw new \LogicException('An active session is required for OIDC authentication.');
         }
 
         return $request->getSession();
