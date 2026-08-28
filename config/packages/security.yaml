@@ -36,10 +36,10 @@ security:
         # - { path: ^/admin, roles: ROLE_ADMIN }
         # - { path: ^/profile, roles: ROLE_USER }
       - { path: ^/login, roles: PUBLIC_ACCESS }
-      - { path: ^/post-login, roles: ROLE_USER }
-      - { path: ^/logout, roles: ROLE_USER }
-      - { path: ^/session, roles: ROLE_USER }
-      - { path: ^/proxy, roles: ROLE_USER }
+      - { path: ^/post-login, roles: IS_AUTHENTICATED_FULLY }
+      - { path: ^/logout, roles: IS_AUTHENTICATED_FULLY }
+      - { path: ^/session, roles: IS_AUTHENTICATED_FULLY }
+      - { path: ^/proxy, roles: IS_AUTHENTICATED_FULLY }
 
 when@test:
     security:

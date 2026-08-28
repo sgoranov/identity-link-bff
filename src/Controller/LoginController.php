@@ -16,7 +16,7 @@ class LoginController extends AbstractController
     public function login(OidcClientInterface $oidcClient, LoggerInterface $logger): Response
     {
         try {
-            return $oidcClient->generateAuthorizationRedirect(scopes: ['openid', 'profile', 'email']);
+            return $oidcClient->generateAuthorizationRedirect(scopes: ['openid', 'profile', 'email', 'offline_access', 'identity-link.all']);
         } catch (\Throwable $e) {
             $logger->error('OIDC login redirection failed: ' . $e->getMessage(), [
                 'exception' => $e

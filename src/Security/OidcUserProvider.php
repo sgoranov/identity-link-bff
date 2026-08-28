@@ -6,6 +6,7 @@ namespace App\Security;
 use Drenso\OidcBundle\Model\OidcTokens;
 use Drenso\OidcBundle\Model\OidcUserData;
 use Drenso\OidcBundle\Security\UserProvider\OidcUserProviderInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\Security\Core\Exception\UserNotFoundException;
@@ -16,9 +17,13 @@ class OidcUserProvider implements OidcUserProviderInterface
     private const SESSION_ACCESS_TOKEN_KEY = '_oidc_access_token';
     private const SESSION_REFRESH_TOKEN_KEY = '_oidc_refresh_token';
     private const SESSION_NAME_KEY = '_oidc_user_name';
+    private const SESSION_ROLES_KEY = '_oidc_user_roles';
+    private const SCOPE_PREFIXES = ['users.', 'clients.', '2fa.'];
 
-    public function __construct(private readonly RequestStack $requestStack)
-    {
+    public function __construct(
+        private readonly RequestStack $requestStack,
+        private readonly LoggerInterface $logger,
+    ) {
     }
 
     public function loadUserByIdentifier(string $identifier): UserInterface
@@ -34,7 +39,7 @@ class OidcUserProvider implements OidcUserProviderInterface
 
         $accessToken = $user->getAccessToken();
 
-        if ($accessToken === null || $this->isTokenExpired($accessToken)) {
+        if ($this->isTokenExpired($accessToken)) {
             // Throwing this exception tells Symfony: "This user is no longer valid"
             // Symfony will then clear the session and redirect to the login entry point.
             throw new UserNotFoundException('OIDC Access Token has expired.');
@@ -51,38 +56,69 @@ class OidcUserProvider implements OidcUserProviderInterface
     public function ensureUserExists(string $userIdentifier, OidcUserData $userData, OidcTokens $tokens): void
     {
         $session = $this->getSession();
-        if ($session === null) {
-            return;
+        $refreshToken = $tokens->getRefreshToken();
+        $name = $this->resolveName($userData);
+
+        if ($refreshToken === null || $refreshToken === '') {
+            throw new \UnexpectedValueException('The OIDC provider did not return a refresh token.');
         }
+        if ($name === null) {
+            throw new \UnexpectedValueException('The OIDC provider did not return a usable user name.');
+        }
+        $roles = $this->resolveRoles($tokens);
 
         $session->set(self::SESSION_ACCESS_TOKEN_KEY, $tokens->getAccessToken());
-        $session->set(self::SESSION_REFRESH_TOKEN_KEY, $tokens->getRefreshToken());
-        $session->set(self::SESSION_NAME_KEY, $this->resolveName($userData));
+        $session->set(self::SESSION_REFRESH_TOKEN_KEY, $refreshToken);
+        $session->set(self::SESSION_NAME_KEY, $name);
+        $session->set(self::SESSION_ROLES_KEY, $roles);
+
+        $this->logger->debug('OIDC user authenticated with scopes.', [
+            'scopes' => $roles,
+        ]);
     }
 
     public function loadOidcUser(string $userIdentifier): UserInterface
     {
-        $accessToken = null;
-        $refreshToken = null;
-        $name = null;
         $session = $this->getSession();
-        if ($session !== null) {
-            $accessToken = $session->get(self::SESSION_ACCESS_TOKEN_KEY);
-            $refreshToken = $session->get(self::SESSION_REFRESH_TOKEN_KEY);
-            $name = $session->get(self::SESSION_NAME_KEY);
-        }
 
-        return new OidcUser($userIdentifier, is_string($name) && $name !== '' ? $name : null, $accessToken, $refreshToken);
+        return new OidcUser(
+            $userIdentifier,
+            $this->getRequiredSessionString($session, self::SESSION_NAME_KEY),
+            $this->getRequiredSessionString($session, self::SESSION_ACCESS_TOKEN_KEY),
+            $this->getRequiredSessionString($session, self::SESSION_REFRESH_TOKEN_KEY),
+            $this->getRequiredSessionRoles($session),
+        );
     }
 
-    private function getSession(): ?SessionInterface
+    private function getSession(): SessionInterface
     {
         $request = $this->requestStack->getCurrentRequest();
         if ($request === null || !$request->hasSession()) {
-            return null;
+            throw new \LogicException('An active session is required for OIDC authentication.');
         }
 
         return $request->getSession();
+    }
+
+    private function getRequiredSessionString(SessionInterface $session, string $key): string
+    {
+        $value = $session->get($key);
+        if (!is_string($value) || $value === '') {
+            throw new \UnexpectedValueException(sprintf('Required OIDC session value "%s" is missing or invalid.', $key));
+        }
+
+        return $value;
+    }
+
+    /** @return string[] */
+    private function getRequiredSessionRoles(SessionInterface $session): array
+    {
+        $roles = $session->get(self::SESSION_ROLES_KEY);
+        if (!is_array($roles) || array_filter($roles, static fn (mixed $role): bool => !is_string($role))) {
+            throw new \UnexpectedValueException('Required OIDC session roles are missing or invalid.');
+        }
+
+        return array_values($roles);
     }
 
     private function isTokenExpired(string $token): bool
@@ -123,5 +159,27 @@ class OidcUserProvider implements OidcUserProviderInterface
 
         $email = trim($userData->getEmail());
         return $email !== '' ? $email : null;
+    }
+
+    private function resolveRoles(OidcTokens $tokens): array
+    {
+        $scopes = array_filter(
+            $tokens->getScope() ?? [],
+            static function (mixed $scope): bool {
+                if (!is_string($scope)) {
+                    return false;
+                }
+
+                foreach (self::SCOPE_PREFIXES as $prefix) {
+                    if (str_starts_with($scope, $prefix)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            },
+        );
+
+        return array_values(array_unique($scopes));
     }
 }

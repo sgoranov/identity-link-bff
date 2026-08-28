@@ -20,7 +20,8 @@ final class ProxyControllerTest extends WebTestCase
             'test_user',
             'Test User Name',
             $this->getJwt('test_user'),
-            'mock_refresh_token'
+            'mock_refresh_token',
+            [],
         );
         $client->loginUser($user, 'main');
 
