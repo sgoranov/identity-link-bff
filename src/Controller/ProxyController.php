@@ -56,7 +56,9 @@ class ProxyController extends AbstractController
             . ($queryString ? '?' . $queryString : '');
 
         $headers = [];
-        $forwardableHeaders = ['content-type', 'accept', 'accept-language'];
+        // The backends are called through nginx, which keeps the X-Request-Id it gave this request, so their logs
+        // share the ID with ours
+        $forwardableHeaders = ['content-type', 'accept', 'accept-language', 'x-request-id'];
         foreach ($forwardableHeaders as $name) {
             if ($request->headers->has($name)) {
                 $headers[$name] = $request->headers->get($name);
