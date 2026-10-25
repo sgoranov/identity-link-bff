@@ -1,9 +1,6 @@
 # see https://symfony.com/doc/current/reference/configuration/framework.html
 framework:
     secret: '%env(default:fallback_app_secret:file:APP_SECRET_FILE)%'
-    annotations: false
-    http_method_override: false
-    handle_all_throwables: true
     trusted_proxies: '%env(TRUSTED_PROXIES)%'
     trusted_headers:
       - x-forwarded-for
@@ -21,8 +18,6 @@ framework:
 
     #esi: true
     #fragments: true
-    php_errors:
-        log: true
 
 when@test:
     framework:
