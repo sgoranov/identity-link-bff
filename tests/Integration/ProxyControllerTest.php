@@ -40,6 +40,20 @@ final class ProxyControllerTest extends WebTestCase
         $this->assertStringContainsString('must-revalidate', (string) $response->headers->get('cache-control'));
     }
 
+    public function testProxyForwardsTheRequestId(): void
+    {
+        $headers = $this->sendThroughProxy(['HTTP_X_REQUEST_ID' => '0123456789abcdef0123456789abcdef']);
+
+        $this->assertSame(['x-request-id: 0123456789abcdef0123456789abcdef'], $headers['x-request-id']);
+    }
+
+    public function testProxySendsNoRequestIdWhenTheRequestHasNone(): void
+    {
+        $headers = $this->sendThroughProxy([]);
+
+        $this->assertArrayNotHasKey('x-request-id', $headers);
+    }
+
     public function testProxyBlocksUnauthenticatedRequests(): void
     {
         $client = static::createClient();
@@ -49,6 +63,30 @@ final class ProxyControllerTest extends WebTestCase
         $response = $client->getResponse();
 
         $this->assertSame(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
+    }
+
+    /**
+     * @return array<string, list<string>> the headers sent to the backend, keyed by lowercase name
+     */
+    private function sendThroughProxy(array $server): array
+    {
+        $client = static::createClient();
+        $client->loginUser(new OidcUser(
+            'test_user',
+            'Test User Name',
+            $this->getJwt('test_user'),
+            'mock_refresh_token',
+            [],
+        ), 'main');
+
+        $backendResponse = new MockResponse('{}', ['response_headers' => ['Content-Type' => 'application/json']]);
+        self::getContainer()->set(HttpClientInterface::class, new MockHttpClient($backendResponse));
+
+        $client->request('GET', '/proxy/my-service/v1/users', server: $server);
+
+        $this->assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+
+        return $backendResponse->getRequestOptions()['normalized_headers'];
     }
 
     private function getJwt(string $user): string

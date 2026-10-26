@@ -42,6 +42,7 @@ readonly class OidcUser implements UserInterface
         return $this->refreshToken;
     }
 
+    #[\Deprecated]
     public function eraseCredentials(): void
     {
     }
